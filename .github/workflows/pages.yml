@@ -1,0 +1,52 @@
+name: Deploy site
+
+# Builds the web version of the GitHub profile from the data and scripts in
+# gmetskhvarishvili/gmetskhvarishvili and publishes it to GitHub Pages.
+on:
+  schedule:
+    - cron: "47 3 * * *"   # daily, 30 minutes after the profile refresh
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: gmetskhvarishvili/gmetskhvarishvili
+          path: profile
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch live numbers
+        run: python profile/tools/profile/fetch.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build page
+        run: python profile/tools/profile/site.py _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
